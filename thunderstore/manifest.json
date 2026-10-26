@@ -1,0 +1,10 @@
+{
+  "name": "RecipeHelper",
+  "version_number": "0.1.0",
+  "website_url": "https://github.com/jacob5567/RecipeHelper",
+  "description": "Shows a sidebar in the Wandering CHEF crafting dialog listing everything you can craft, including through several crafts in a row. Client-side.",
+  "dependencies": [
+    "bbepis-BepInExPack-5.4.2122",
+    "RiskofThunder-RoR2BepInExPack-1.46.0"
+  ]
+}
