@@ -31,6 +31,8 @@ namespace RecipeHelper
         private TextMeshProUGUI header;
         private TextMeshProUGUI body;
         private bool rendered;
+        private bool loggedLayout;
+        private bool clamped;
 
         // Read by the RecipeHelper.Tests plugin.
         internal List<CraftPlan> Plans { get; private set; } = new List<CraftPlan>();
@@ -40,10 +42,24 @@ namespace RecipeHelper
             hud = owner;
             panel = GetComponent<CraftingPanel>();
             BuildUi();
+            if (RecipeHelperPlugin.Settings.DebugLogging.Value)
+            {
+                RecipeHelperPlugin.Log.LogInfo($"Sidebar: built on '{name}', parent '{root.transform.parent.name}'");
+            }
         }
 
         private void Update()
         {
+            if (!clamped && rendered)
+            {
+                clamped = true;
+                ClampToScreen();
+            }
+            if (!loggedLayout && rendered && RecipeHelperPlugin.Settings.DebugLogging.Value)
+            {
+                loggedLayout = true;
+                LogLayout();
+            }
             // The participant is synced after the panel appears, so the inventory is picked up here rather than in Init.
             CharacterMaster master = panel.craftingController?.networkUIPromptController?.currentParticipantMaster;
             Inventory current = master ? master.inventory : null;
@@ -88,6 +104,50 @@ namespace RecipeHelper
                 RecipeHelperPlugin.Log.LogInfo("Recipe search stopped at the state budget; longer chains may be missing.");
             }
             Render(planner.HitBudget);
+            if (settings.DebugLogging.Value)
+            {
+                RecipeHelperPlugin.Log.LogInfo($"Sidebar: {Plans.Count} results, inventory={(inventory ? "yes" : "none")}");
+            }
+        }
+
+        // The panel's rect is wider than the screen, so its left edge can be off screen. Once the layout has run, move the
+        // sidebar right until it starts a margin inside the screen's left edge.
+        private void ClampToScreen()
+        {
+            RectTransform rect = (RectTransform)root.transform;
+            Canvas canvas = GetComponentInParent<Canvas>();
+            Camera camera = canvas && canvas.rootCanvas.renderMode != RenderMode.ScreenSpaceOverlay ? canvas.rootCanvas.worldCamera : null;
+            Vector3[] corners = new Vector3[4];
+            rect.GetWorldCorners(corners);
+            Vector2 left = RectTransformUtility.WorldToScreenPoint(camera, corners[0]);
+            Vector2 right = RectTransformUtility.WorldToScreenPoint(camera, corners[2]);
+            float pixelsPerUnit = rect.rect.width > 0f ? (right.x - left.x) / rect.rect.width : 0f;
+            float marginPixels = Margin * pixelsPerUnit;
+            if (pixelsPerUnit > 0f && left.x < marginPixels)
+            {
+                rect.anchoredPosition += new Vector2((marginPixels - left.x) / pixelsPerUnit, 0f);
+            }
+            if (RecipeHelperPlugin.Settings.DebugLogging.Value)
+            {
+                RecipeHelperPlugin.Log.LogInfo($"Sidebar: screen x {left.x:0}-{right.x:0} of {Screen.width}, moved to {rect.anchoredPosition.x:0}");
+            }
+        }
+
+        // Where the sidebar ended up, for when it doesn't show.
+        private void LogLayout()
+        {
+            RectTransform panelRect = (RectTransform)transform;
+            RectTransform rect = (RectTransform)root.transform;
+            Canvas canvas = GetComponentInParent<Canvas>();
+            RecipeHelperPlugin.Log.LogInfo($"Sidebar layout: panel rect={panelRect.rect} scale={panelRect.lossyScale}; sidebar rect={rect.rect} pos={rect.position} active={root.activeInHierarchy}; canvas='{(canvas ? canvas.name : "none")}' order={(canvas ? canvas.sortingOrder : 0)} override={(canvas && canvas.overrideSorting)}; body chars={body.text.Length} font={(body.font ? body.font.name : "none")} size={body.fontSize}");
+            foreach (Canvas own in GetComponentsInChildren<Canvas>(true))
+            {
+                RecipeHelperPlugin.Log.LogInfo($"  canvas under panel: '{own.name}' order={own.sortingOrder} override={own.overrideSorting}");
+            }
+            foreach (CanvasGroup group in GetComponentsInParent<CanvasGroup>(true))
+            {
+                RecipeHelperPlugin.Log.LogInfo($"  canvas group above: '{group.name}' alpha={group.alpha}");
+            }
         }
 
         private static InventorySnapshot EverythingSnapshot()
@@ -162,12 +222,14 @@ namespace RecipeHelper
         {
             float width = RecipeHelperPlugin.Settings.SidebarWidth.Value;
             root = new GameObject("RecipeHelperSidebar", typeof(RectTransform));
-            Transform parent = hud.mainContainer.transform;
+            // Inside the panel, not beside it: the panel draws on its own canvas above the HUD.
+            Transform parent = transform;
             root.layer = parent.gameObject.layer;
             RectTransform rect = (RectTransform)root.transform;
             rect.SetParent(parent, false);
-            rect.anchorMin = rect.anchorMax = rect.pivot = new Vector2(1f, 0.5f);
-            rect.anchoredPosition = new Vector2(-Margin, 0f);
+            rect.SetAsLastSibling();
+            rect.anchorMin = rect.anchorMax = rect.pivot = new Vector2(0f, 0.5f);
+            rect.anchoredPosition = new Vector2(Margin, 0f);
             rect.sizeDelta = new Vector2(width, 0f);
 
             root.AddComponent<ContentSizeFitter>().verticalFit = ContentSizeFitter.FitMode.PreferredSize;

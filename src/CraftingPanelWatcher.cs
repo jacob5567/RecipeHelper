@@ -13,6 +13,15 @@ namespace RecipeHelper
         private void Awake()
         {
             hud = GetComponent<HUD>();
+            Log($"watching HUD '{name}'");
+        }
+
+        private static void Log(string message)
+        {
+            if (RecipeHelperPlugin.Settings.DebugLogging.Value)
+            {
+                RecipeHelperPlugin.Log.LogInfo("Watcher: " + message);
+            }
         }
 
         private void Update()
@@ -24,8 +33,9 @@ namespace RecipeHelper
             }
             lastChildCount = container.childCount;
 
-            foreach (CraftingPanel panel in container.GetComponentsInChildren<CraftingPanel>())
+            foreach (CraftingPanel panel in container.GetComponentsInChildren<CraftingPanel>(true))
             {
+                Log($"found CraftingPanel '{panel.name}' active={panel.gameObject.activeInHierarchy} sidebar={(bool)panel.GetComponent<RecipeSidebar>()}");
                 if (!panel.GetComponent<RecipeSidebar>())
                 {
                     panel.gameObject.AddComponent<RecipeSidebar>().Init(hud);
