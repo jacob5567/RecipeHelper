@@ -7,11 +7,13 @@ namespace RecipeHelper
 {
     // Lives on the CHEF's CraftingPanel, so it goes away with the dialog. Lists what the participant's inventory can
     // craft, recomputed only when the inventory changes. The list fills the space left of the CHEF's window, then
-    // continues in the space to its right. The Style setting picks recipe cards or a result grid with a detail panel.
+    // continues in the space to its right. The Style setting picks a list that fills the slots on click, recipe cards,
+    // or a result grid with a detail panel.
     //
-    // Read-only: never call the CraftingController's ClearSlot, ClearAllSlots, SendToSlot, ConfirmSelection,
+    // Read-only apart from SlotFiller: never call the CraftingController's ClearAllSlots, SendToSlot, ConfirmSelection,
     // ConfirmButtonHit, CancelButtonHit, OnConfirmServer or SendToMealprep, or set its ingredients. They change the
-    // dialog's state or send messages to the host.
+    // dialog's state or send messages to the host. SlotFiller alone calls SubmitChoice and ClearSlot, the calls the
+    // dialog's own buttons make.
     internal sealed class RecipeSidebar : MonoBehaviour
     {
         private const string Header = "You can craft";
@@ -29,6 +31,7 @@ namespace RecipeHelper
         private bool settled;
         private int stillFrames;
         private Rect lastWindow;
+        private int lastSlots;
         private InventorySnapshot snapshot;
         private PickupIndex selected = PickupIndex.none;
 
@@ -55,6 +58,7 @@ namespace RecipeHelper
             CharacterMaster master = panel.craftingController?.networkUIPromptController?.currentParticipantMaster;
             Inventory current = master ? master.inventory : null;
             WatchWindow();
+            WatchSlots();
             if (rendered && current == inventory)
             {
                 return;
@@ -94,6 +98,37 @@ namespace RecipeHelper
                 {
                     Render(lastTruncated);
                 }
+            }
+        }
+
+        // The list marks the row whose craft is in the slots, so it is redrawn when the slots change.
+        private void WatchSlots()
+        {
+            PickupIndex[] current = panel.craftingController?.ingredients;
+            int slots = 17;
+            if (current != null)
+            {
+                foreach (PickupIndex pickup in current)
+                {
+                    slots = slots * 31 + pickup.value;
+                }
+            }
+            if (slots == lastSlots)
+            {
+                return;
+            }
+            lastSlots = slots;
+            if (rendered && settled && RecipeHelperPlugin.Settings.Style.Value == SidebarStyle.List)
+            {
+                Render(lastTruncated);
+            }
+        }
+
+        private void FillSlots(CraftStep step)
+        {
+            if (!SlotFiller.Fill(panel.craftingController, GetComponent<PickupPickerPanel>(), step) && RecipeHelperPlugin.Settings.DebugLogging.Value)
+            {
+                RecipeHelperPlugin.Log.LogInfo($"Sidebar: the dialog doesn't offer every ingredient of {Ui.Name(step.Result)}; slots left as they were.");
             }
         }
 
@@ -160,9 +195,19 @@ namespace RecipeHelper
                 return;
             }
 
-            List<SidebarBlock> blocks = RecipeHelperPlugin.Settings.Style.Value == SidebarStyle.Grid
-                ? GridView.Blocks(Plans, snapshot, selected, Select)
-                : CardsView.Blocks(Plans, snapshot);
+            List<SidebarBlock> blocks;
+            switch (RecipeHelperPlugin.Settings.Style.Value)
+            {
+                case SidebarStyle.Grid:
+                    blocks = GridView.Blocks(Plans, snapshot, selected, Select);
+                    break;
+                case SidebarStyle.Cards:
+                    blocks = CardsView.Blocks(Plans, snapshot);
+                    break;
+                default:
+                    blocks = ListView.Blocks(Plans, snapshot, (step) => SlotFiller.Holds(panel.craftingController, step), FillSlots);
+                    break;
+            }
             Flow(blocks, layout.RightWidth > 0f ? new[] { left, right } : new[] { left }, layout.Height);
             if (layout.RightWidth <= 0f)
             {
