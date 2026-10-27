@@ -83,7 +83,11 @@ namespace RecipeHelper
 
         private static List<CraftPlan> Sorted(Dictionary<PickupIndex, CraftPlan> best)
         {
-            return best.Values.OrderBy(p => p.Steps.Count).ThenBy(p => p.Result.value).ToList();
+            return best.Values
+                .OrderBy(p => p.Steps.Count)
+                .ThenByDescending(p => PickupRarity.Rank(p.Result))
+                .ThenBy(p => Language.GetString(PickupCatalog.GetPickupDef(p.Result)?.nameToken ?? ""))
+                .ToList();
         }
 
         // Every distinct way to fill a recipe's slots from distinct units of the inventory.
