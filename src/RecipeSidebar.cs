@@ -7,8 +7,7 @@ namespace RecipeHelper
 {
     // Lives on the CHEF's CraftingPanel, so it goes away with the dialog. Lists what the participant's inventory can
     // craft, recomputed only when the inventory changes. The list fills the space left of the CHEF's window, then
-    // continues in the space to its right. The Style setting picks a list that fills the slots on click, recipe cards,
-    // or a result grid with a detail panel.
+    // continues in the space to its right. Clicking a result puts its first craft in the CHEF's slots.
     //
     // Read-only apart from SlotFiller: never call the CraftingController's ClearAllSlots, SendToSlot, ConfirmSelection,
     // ConfirmButtonHit, CancelButtonHit, OnConfirmServer or SendToMealprep, or set its ingredients. They change the
@@ -33,7 +32,6 @@ namespace RecipeHelper
         private Rect lastWindow;
         private int lastSlots;
         private InventorySnapshot snapshot;
-        private PickupIndex selected = PickupIndex.none;
 
         // Read by the RecipeHelper.Tests plugin.
         internal List<CraftPlan> Plans { get; private set; } = new List<CraftPlan>();
@@ -45,7 +43,6 @@ namespace RecipeHelper
             left = new SidebarColumn(transform, "RecipeHelperSidebarLeft");
             right = new SidebarColumn(transform, "RecipeHelperSidebarRight");
             right.Hide();
-            RecipeHelperPlugin.Settings.Style.SettingChanged += OnStyleChanged;
             if (RecipeHelperPlugin.Settings.DebugLogging.Value)
             {
                 RecipeHelperPlugin.Log.LogInfo($"Sidebar: built on '{name}'");
@@ -101,7 +98,7 @@ namespace RecipeHelper
             }
         }
 
-        // The list marks the row whose craft is in the slots, so it is redrawn when the slots change.
+        // The row whose craft is in the slots is marked, so it is redrawn when the slots change.
         private void WatchSlots()
         {
             PickupIndex[] current = panel.craftingController?.ingredients;
@@ -118,7 +115,7 @@ namespace RecipeHelper
                 return;
             }
             lastSlots = slots;
-            if (rendered && settled && RecipeHelperPlugin.Settings.Style.Value == SidebarStyle.List)
+            if (rendered && settled)
             {
                 Render(lastTruncated);
             }
@@ -132,17 +129,8 @@ namespace RecipeHelper
             }
         }
 
-        private void OnStyleChanged(object sender, System.EventArgs args)
-        {
-            if (rendered)
-            {
-                Render(lastTruncated);
-            }
-        }
-
         private void OnDestroy()
         {
-            RecipeHelperPlugin.Settings.Style.SettingChanged -= OnStyleChanged;
             if (inventory)
             {
                 inventory.onInventoryChanged -= Refresh;
@@ -195,19 +183,7 @@ namespace RecipeHelper
                 return;
             }
 
-            List<SidebarBlock> blocks;
-            switch (RecipeHelperPlugin.Settings.Style.Value)
-            {
-                case SidebarStyle.Grid:
-                    blocks = GridView.Blocks(Plans, snapshot, selected, Select);
-                    break;
-                case SidebarStyle.Cards:
-                    blocks = CardsView.Blocks(Plans, snapshot);
-                    break;
-                default:
-                    blocks = ListView.Blocks(Plans, snapshot, (step) => SlotFiller.Holds(panel.craftingController, step), FillSlots);
-                    break;
-            }
+            List<SidebarBlock> blocks = ListView.Blocks(Plans, snapshot, (step) => SlotFiller.Holds(panel.craftingController, step), FillSlots);
             Flow(blocks, layout.RightWidth > 0f ? new[] { left, right } : new[] { left }, layout.Height);
             if (layout.RightWidth <= 0f)
             {
@@ -215,21 +191,8 @@ namespace RecipeHelper
             }
         }
 
-        private void Select(PickupIndex result)
-        {
-            selected = result;
-            Render(lastTruncated);
-        }
-
-        private sealed class Placed
-        {
-            public SidebarBlock Block;
-            public GameObject Built;
-            public GameObject Label;
-        }
-
-        // Fills the columns in order, moving to the next when a block doesn't fit. In the last column, a required block
-        // pushes out earlier ones, and a line says how many results were left out.
+        // Fills the columns in order, moving to the next when a block doesn't fit. When the last column is full, a line
+        // says how many results were left out.
         private void Flow(List<SidebarBlock> blocks, SidebarColumn[] columns, float maxHeight)
         {
             int column = 0;
@@ -238,7 +201,6 @@ namespace RecipeHelper
             {
                 columns[i].Hide();
             }
-            List<Placed> placed = new List<Placed>();
             string lastGroup = null;
             int shownResults = 0;
             int totalResults = 0;
@@ -247,61 +209,29 @@ namespace RecipeHelper
                 totalResults += block.Results;
             }
 
-            bool full = false;
             for (int i = 0; i < blocks.Count; i++)
             {
                 SidebarBlock block = blocks[i];
-                // Once the last column is full, only required blocks are still placed, so the order is never broken.
-                if (full && !block.Required)
-                {
-                    continue;
-                }
                 SidebarColumn target = columns[column];
-                Placed entry = new Placed { Block = block };
-                if (block.Group != null && block.Group != lastGroup)
-                {
-                    entry.Label = target.AddLabel(block.Group);
-                }
-                entry.Built = target.Add(block);
+                GameObject label = block.Group != null && block.Group != lastGroup ? target.AddLabel(block.Group) : null;
+                GameObject built = target.Add(block);
                 if (target.Height() <= maxHeight || target.Count <= 2)
                 {
-                    placed.Add(entry);
                     lastGroup = block.Group;
                     shownResults += block.Results;
                     continue;
                 }
 
-                target.Remove(entry.Built);
-                target.Remove(entry.Label);
-                if (column + 1 < columns.Length)
+                target.Remove(built);
+                target.Remove(label);
+                if (column + 1 >= columns.Length)
                 {
-                    column++;
-                    columns[column].Show(ContinuedHeader);
-                    placed.Clear();
-                    lastGroup = null;
-                    i--;
-                    continue;
+                    break;
                 }
-                full = true;
-                if (!block.Required)
-                {
-                    continue;
-                }
-
-                // Make room for the required block by dropping the blocks before it in this column, last first.
-                float needed = EstimateHeight(target, block);
-                for (int p = placed.Count - 1; p >= 0 && target.Height() > maxHeight - needed; p--)
-                {
-                    if (placed[p].Block.Required)
-                    {
-                        continue;
-                    }
-                    target.Remove(placed[p].Built);
-                    target.Remove(placed[p].Label);
-                    shownResults -= placed[p].Block.Results;
-                    placed.RemoveAt(p);
-                }
-                target.Add(block);
+                column++;
+                columns[column].Show(ContinuedHeader);
+                lastGroup = null;
+                i--;
             }
 
             if (shownResults < totalResults)
@@ -312,16 +242,6 @@ namespace RecipeHelper
             {
                 columns[column].AddText("Longer chains not searched.");
             }
-        }
-
-        // The height a block adds to a column, found by building it and taking it out again.
-        private static float EstimateHeight(SidebarColumn column, SidebarBlock block)
-        {
-            float before = column.Height();
-            GameObject built = column.Add(block);
-            float after = column.Height();
-            column.Remove(built);
-            return after - before;
         }
     }
 

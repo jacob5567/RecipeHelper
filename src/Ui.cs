@@ -73,12 +73,6 @@ namespace RecipeHelper
             element.flexibleWidth = element.flexibleHeight = 0f;
         }
 
-        public static void Width(RectTransform rect, float width)
-        {
-            LayoutElement element = Element(rect);
-            element.minWidth = element.preferredWidth = width;
-            element.flexibleWidth = 0f;
-        }
 
         public static void Flexible(RectTransform rect)
         {

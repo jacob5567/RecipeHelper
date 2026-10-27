@@ -7,7 +7,7 @@ using UnityEngine.UI;
 
 namespace RecipeHelper
 {
-    // Sidebar style E: one row per result showing its crafts. Clicking a row puts the first craft in the CHEF's slots;
+    // The sidebar's content: one row per result showing its crafts. Clicking a row puts the first craft in the CHEF's slots;
     // the later crafts of a chain are dimmed, since they can only be made at a later visit.
     internal static class ListView
     {
@@ -33,12 +33,17 @@ namespace RecipeHelper
                 CraftPlan captured = plan;
                 blocks.Add(new SidebarBlock
                 {
-                    Group = CardsView.GroupLabel(plan.Steps.Count),
+                    Group = GroupLabel(plan.Steps.Count),
                     Results = 1,
                     Build = (parent, width) => Row(parent, captured, StepDetail.Build(start, captured), inSlots(captured.Steps[0]), fill),
                 });
             }
             return blocks;
+        }
+
+        private static string GroupLabel(int steps)
+        {
+            return steps == 1 ? "NOW" : "IN " + steps + " CRAFTS";
         }
 
         private static void Row(RectTransform parent, CraftPlan plan, List<StepDetail> details, bool inSlots, Action<CraftStep> fill)

@@ -29,7 +29,6 @@ namespace RecipeHelper
 
             ModSettingsManager.AddOption(new CheckBoxOption(settings.Enabled));
             ModSettingsManager.AddOption(new IntSliderOption(settings.MaxChainSteps, new IntSliderConfig { min = 1, max = 5 }));
-            ModSettingsManager.AddOption(new ChoiceOption(settings.Style));
 
             // The options menu groups these under a "Debug" header, named after their config section.
             ModSettingsManager.AddOption(new CheckBoxOption(settings.DebugLogging));
