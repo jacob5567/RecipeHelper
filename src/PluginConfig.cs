@@ -3,13 +3,18 @@ using UnityEngine;
 
 namespace RecipeHelper
 {
+    internal enum SidebarStyle
+    {
+        Cards,
+        Grid,
+    }
+
     // All config entries, bound from the plugin's config file.
     internal sealed class PluginConfig
     {
         public readonly ConfigEntry<bool> Enabled;
         public readonly ConfigEntry<int> MaxChainSteps;
-        public readonly ConfigEntry<int> MaxRows;
-        public readonly ConfigEntry<float> SidebarWidth;
+        public readonly ConfigEntry<SidebarStyle> Style;
 
         public readonly ConfigEntry<bool> DebugLogging;
         public readonly ConfigEntry<bool> DebugAlwaysShow;
@@ -22,11 +27,8 @@ namespace RecipeHelper
             MaxChainSteps = config.Bind("Sidebar", "MaxChainSteps", 3,
                 new ConfigDescription("The most crafts in a row to look ahead, counting crafts whose results are used as ingredients in later ones.",
                     new AcceptableValueRange<int>(1, 5)));
-            MaxRows = config.Bind("Sidebar", "MaxRows", 14,
-                new ConfigDescription("The most results listed at once, nearest first. The rest are summarized as a count.",
-                    new AcceptableValueRange<int>(4, 40)));
-            SidebarWidth = config.Bind("Sidebar", "SidebarWidth", 360f,
-                new ConfigDescription("Width of the sidebar in UI pixels.", new AcceptableValueRange<float>(200f, 700f)));
+            Style = config.Bind("Sidebar", "Style", SidebarStyle.Cards,
+                "Cards: a card per result showing each craft as icons. Grid: the results as an icon grid; select one to see how to make it.");
 
             DebugLogging = config.Bind("Debug", "DebugLogging", false,
                 "Enable the dump key, which logs the recipe catalog size and the plan for your inventory.");

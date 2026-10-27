@@ -4,8 +4,10 @@ Shows a sidebar beside the Wandering CHEF's crafting dialog listing everything y
 
 ## What you see
 
-- While the CHEF's dialog is open, a list of results on the right side of the screen, nearest first: what you can make now, then what you can make in 2 crafts, then 3.
-- Under each result, the crafts to make it, in order, for example `A + B → C`, then `C + D → E`.
+- While the CHEF's dialog is open, a list of results in the space left of the dialog, continuing on its right when it doesn't fit. Results are grouped by how many crafts they take (now, then 2 crafts, then 3), rarest first within each group.
+- The crafts to make each result, in order, drawn with item icons, for example `A + B → C`, then `C + D → E`. Items an earlier craft makes have a faint frame.
+- Under a slot, the other items you hold that would also fit it.
+- Two styles: a card per result, or an icon grid of results with a panel showing how to make the one you click.
 - The list updates as your inventory changes.
 - Only permanent items count, as in the CHEF itself. Recipes from expansions that aren't enabled in the run are left out.
 
@@ -19,8 +21,7 @@ Settings are in `BepInEx/config/sevenstack.RecipeHelper.cfg`. If [Risk Of Option
 |---|---|---|
 | Sidebar / Enabled | true | Show the list beside the CHEF's dialog. Takes effect on the next stage or HUD change. |
 | Sidebar / MaxChainSteps | 3 | The most crafts in a row to look ahead (1–5). |
-| Sidebar / MaxRows | 14 | The most results listed at once (4–40). The rest are summarized as a count. |
-| Sidebar / SidebarWidth | 360 | Width of the sidebar in UI pixels. |
+| Sidebar / Style | Cards | Cards: a card per result showing each craft as item icons. Grid: the results as an icon grid; click one to see how to make it. |
 | Debug / DebugLogging | false | Enables the dump key. |
 | Debug / DebugAlwaysShow | false | Lists every recipe regardless of your inventory, for testing the layout. |
 | Debug / DumpKey | F8 | With DebugLogging on, logs the recipe count and the plan for your inventory. |
