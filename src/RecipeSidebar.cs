@@ -171,7 +171,7 @@ namespace RecipeHelper
             SidebarLayout layout = SidebarLayout.Measure((RectTransform)transform, panel);
             if (RecipeHelperPlugin.Settings.DebugLogging.Value)
             {
-                RecipeHelperPlugin.Log.LogInfo($"Sidebar: {Plans.Count} results, inventory={(inventory ? "yes" : "none")}; {layout}; screen {Screen.width}x{Screen.height}; images:{SidebarLayout.DescribeImages((RectTransform)transform)}");
+                RecipeHelperPlugin.Log.LogInfo($"Sidebar: {Plans.Count} results, inventory={(inventory ? "yes" : "none")}; {layout}; screen {Screen.width}x{Screen.height}");
             }
             left.Place(layout.LeftX, layout.CenterY, layout.LeftWidth);
             right.Place(layout.RightX, layout.CenterY, layout.RightWidth);

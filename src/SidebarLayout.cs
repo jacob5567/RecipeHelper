@@ -112,32 +112,6 @@ namespace RecipeHelper
             return best;
         }
 
-        // Every visible image under the panel with its screen span and sprite, to see which one draws the window frame.
-        internal static string DescribeImages(RectTransform panelRect)
-        {
-            Canvas canvas = panelRect.GetComponentInParent<Canvas>();
-            Camera camera = canvas && canvas.rootCanvas.renderMode != RenderMode.ScreenSpaceOverlay ? canvas.rootCanvas.worldCamera : null;
-            StringBuilder text = new StringBuilder();
-            foreach (Image image in panelRect.GetComponentsInChildren<Image>())
-            {
-                if (!image.enabled || image.color.a <= 0f)
-                {
-                    continue;
-                }
-                Rect bounds = ScreenRect(image.rectTransform, camera);
-                if (bounds.width < Screen.width * 0.3f)
-                {
-                    continue;
-                }
-                Sprite sprite = image.sprite;
-                text.Append($"\n  {image.rectTransform.name} (parent {image.rectTransform.parent.name}) x {bounds.xMin:0}-{bounds.xMax:0} y {bounds.yMin:0}-{bounds.yMax:0} type={image.type} sprite={(sprite ? sprite.name : "none")}");
-                if (sprite)
-                {
-                    text.Append($" border={sprite.border} padding={UnityEngine.Sprites.DataUtility.GetPadding(sprite)} rect={sprite.rect.size} ppu={sprite.pixelsPerUnit} mult={image.pixelsPerUnitMultiplier}");
-                }
-            }
-            return text.ToString();
-        }
 
         private static bool Encloses(Rect outer, Rect inner)
         {
